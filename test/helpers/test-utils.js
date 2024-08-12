@@ -1,8 +1,8 @@
-/* jshint qunit: true */
-/* global JSZip,JSZipTestUtils */
-'use strict';
+"use strict";
 
 (function (global) {
+    // Expose assert object globally
+    global.assert = QUnit.assert;
 
     var JSZipTestUtils = {};
 
@@ -53,48 +53,48 @@
        */
     JSZipTestUtils.MAX_BYTES_DIFFERENCE_PER_ZIP_ENTRY = 18;
 
-    JSZipTestUtils.checkGenerateStability = function checkGenerateStability(bytesStream, options) {
-        stop();
+    JSZipTestUtils.checkGenerateStability = function checkGenerateStability(assert, bytesStream, options) {
+        var done = assert.async();
 
         options = options || {type:"binarystring"};
         // TODO checkcrc32
         return new JSZip().loadAsync(bytesStream).then(function (zip) {
             return zip.generateAsync(options);
         }).then(function (content) {
-            ok(JSZipTestUtils.similar(bytesStream, content, 0), "generate stability : stable");
-            start();
-        })['catch'](JSZipTestUtils.assertNoError);
+            assert.ok(JSZipTestUtils.similar(bytesStream, content, 0), "generate stability : stable");
+            done();
+        })["catch"](JSZipTestUtils.assertNoError);
     };
 
-    JSZipTestUtils.checkBasicStreamBehavior = function checkBasicStreamBehavior(stream, testName) {
-        stop();
+    JSZipTestUtils.checkBasicStreamBehavior = function checkBasicStreamBehavior(assert, stream, testName) {
+        var done = assert.async();
         if (!testName) {
             testName = "";
         }
         var triggeredStream = false;
         stream
-        .on("data", function (data, metadata) {
+            .on("data", function (data, metadata) {
             // triggering a lot of passing checks makes the result unreadable
-            if (!data) {
-                ok(data, testName + "basic check stream, data event handler, data is defined");
-            }
-            if(!metadata) {
-                ok(metadata, testName + "basic check stream, data event handler, metadata is defined");
-            }
-            triggeredStream = true;
-        })
-        .on("error", function (e) {
-            ok(e, testName + "basic check stream, error event handler, error is defined");
-            triggeredStream = true;
-            start();
-        })
-        .on("end", function () {
-            triggeredStream = true;
-            start();
-        })
-        .resume()
+                if (!data) {
+                    assert.ok(data, testName + "basic check stream, data event handler, data is defined");
+                }
+                if(!metadata) {
+                    assert.ok(metadata, testName + "basic check stream, data event handler, metadata is defined");
+                }
+                triggeredStream = true;
+            })
+            .on("error", function (e) {
+                assert.ok(e, testName + "basic check stream, error event handler, error is defined");
+                triggeredStream = true;
+                done();
+            })
+            .on("end", function () {
+                triggeredStream = true;
+                done();
+            })
+            .resume()
         ;
-        ok(!triggeredStream, testName + "basic check stream, the stream callback is async");
+        assert.ok(!triggeredStream, testName + "basic check stream, the stream callback is async");
     };
 
     JSZipTestUtils.toString = function toString(obj) {
@@ -134,10 +134,7 @@
         if (typeof console !== "undefined" && console.error) {
             console.error(err.stack);
         }
-        ok(false, "unexpected error : " + err + ",  " + err.stack);
-        while(QUnit.config.semaphore) {
-            start();
-        }
+        QUnit.assert.ok(false, "unexpected error : " + err + ",  " + err.stack);
     };
 
     JSZipTestUtils.testZipFile = function testZipFile(testName, zipName, testFunction) {
@@ -149,8 +146,8 @@
             filesToFetch = zipName;
         }
 
-        test(testName, function () {
-            stop();
+        QUnit.test(testName, function (assert) {
+            var done = assert.async();
 
             var results = new Array(filesToFetch.length);
             var count = 0;
@@ -163,15 +160,15 @@
 
                 if (count === filesToFetch.length) {
 
-                    start();
+                    done();
                     if(fetchError) {
-                        ok(false, fetchError);
+                        assert.ok(false, fetchError);
                         return;
                     }
                     if(simpleForm) {
-                        testFunction.call(null, results[0]);
+                        testFunction.call(null, assert, results[0]);
                     } else {
-                        testFunction.call(null, results);
+                        testFunction.call(null, assert, results);
                     }
                 }
 
@@ -191,7 +188,7 @@
 
     var base64Dict = {
         "": "",
-        "\xE2\x82\xAC15\n": "4oKsMTUK",
+        "\xE2\x82\xAC15\n": "4oKsMTUK",
         "test\r\ntest\r\n": "dGVzdA0KdGVzdA0K",
         "all.zip.base64,stream=false": "UEsDBAoAAAAAAO+7TTrj5ZWwDAAAAAwAAAAJAAAASGVsbG8udHh0SGVsbG8gV29ybGQKUEsDBAoAAAAAAA9qUToAAAAAAAAAAAAAAAAHAAAAaW1hZ2VzL1BLAwQKAAAAAACZoEg6PD/riikAAAApAAAAEAAAAGltYWdlcy9zbWlsZS5naWZHSUY4N2EFAAUAgAIAAAAA/94ALAAAAAAFAAUAAAIIjA+RZ6sKUgEAO1BLAQIUAAoAAAAAAO+7TTrj5ZWwDAAAAAwAAAAJAAAAAAAAAAAAAAAAAAAAAABIZWxsby50eHRQSwECFAAKAAAAAAAPalE6AAAAAAAAAAAAAAAABwAAAAAAAAAAABAAAAAzAAAAaW1hZ2VzL1BLAQIUAAoAAAAAAJmgSDo8P+uKKQAAACkAAAAQAAAAAAAAAAAAAAAAAFgAAABpbWFnZXMvc21pbGUuZ2lmUEsFBgAAAAADAAMAqgAAAK8AAAAAAA==",
         "all.zip.base64,stream=true": "UEsDBAoACAAAAO+7TToAAAAAAAAAAAAAAAAJAAAASGVsbG8udHh0SGVsbG8gV29ybGQKUEsHCOPllbAMAAAADAAAAFBLAwQKAAAAAAAPalE6AAAAAAAAAAAAAAAABwAAAGltYWdlcy9QSwMECgAIAAAAmaBIOgAAAAAAAAAAAAAAABAAAABpbWFnZXMvc21pbGUuZ2lmR0lGODdhBQAFAIACAAAAAP/eACwAAAAABQAFAAACCIwPkWerClIBADtQSwcIPD/riikAAAApAAAAUEsBAhQACgAIAAAA77tNOuPllbAMAAAADAAAAAkAAAAAAAAAAAAAAAAAAAAAAEhlbGxvLnR4dFBLAQIUAAoAAAAAAA9qUToAAAAAAAAAAAAAAAAHAAAAAAAAAAAAEAAAAEMAAABpbWFnZXMvUEsBAhQACgAIAAAAmaBIOjw/64opAAAAKQAAABAAAAAAAAAAAAAAAAAAaAAAAGltYWdlcy9zbWlsZS5naWZQSwUGAAAAAAMAAwCqAAAAzwAAAAAA"
